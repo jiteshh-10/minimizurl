@@ -1,8 +1,10 @@
 package com.urlshorteningservice.minimizurl.controller;
 
+import com.urlshorteningservice.minimizurl.domain.UrlMapping;
 import com.urlshorteningservice.minimizurl.service.UrlService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -31,6 +33,19 @@ public class UrlController {
             response.sendRedirect(originalUrl);
         } else {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/stats/{shortCode}")
+    public ResponseEntity<UrlMapping> getStats(@PathVariable String shortCode) {
+        UrlMapping mapping = urlService.getStats(shortCode);
+
+        if (mapping != null) {
+            // Return 200 OK with the object in the body
+            return ResponseEntity.ok(mapping);
+        } else {
+            // Return 404 Not Found with an empty body
+            return ResponseEntity.notFound().build();
         }
     }
 }

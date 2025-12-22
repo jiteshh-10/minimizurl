@@ -53,5 +53,10 @@ public class UrlService {
         return (mapping != null) ? mapping.getOriginalUrl() : null;
     }
 
+    public UrlMapping getStats(String shortCode) {
+        long id = shorteningService.decode(shortCode); // Decodes "1" -> 1
+        return urlMappingRepository.findById(id).orElse(null); // Returns the whole document or null
+    }
+
 
 }
