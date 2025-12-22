@@ -5,6 +5,7 @@ import com.urlshorteningservice.minimizurl.dto.updateUrlRequest;
 import com.urlshorteningservice.minimizurl.service.UrlService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +18,27 @@ public class UrlController {
 
     private final UrlService urlService;
 
-    @PostMapping("/shorten") // Added leading slash for consistency
-    public String shortenUrl(@RequestBody String originalUrl) { // Added @RequestBody
-        return urlService.shortenUrl(originalUrl);
+    @PostMapping("/shorten")
+    public ResponseEntity<String> shortenUrl(
+            @RequestParam String url,
+            @RequestParam(required = false) String customCode) {
+
+        String result;
+
+        // 1. Check if a custom code was provided
+        if (customCode != null && !customCode.trim().isEmpty()) {
+            result = urlService.shortenUrl(url, customCode);
+        } else {
+            result = urlService.shortenUrl(url);
+        }
+
+        // 2. Handle the "Already Taken" case
+        if (result == null) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Error: Custom code '" + customCode + "' is already in use.");
+        }
+
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{shortCode}")

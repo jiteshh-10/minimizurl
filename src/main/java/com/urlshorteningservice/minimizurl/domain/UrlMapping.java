@@ -26,6 +26,9 @@ public class UrlMapping {
 
     private Instant createdDate;
 
+    @Indexed(unique = true, sparse = true)
+    private String customCode;
+
     // Custom Constructor for our Service
     public UrlMapping(long id, String originalUrl, Instant expirationDate) {
         this.id = id;

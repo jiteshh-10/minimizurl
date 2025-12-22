@@ -24,38 +24,66 @@ public class UrlService {
     // Default expiration: 30 days
     private static final long DEFAULT_EXPIRY_DAYS = 30;
 
+    // Method A: Standard Auto-Generated Shortening
     public String shortenUrl(String originalUrl) {
         long id = sequenceGeneratorService.generateSequence("url_sequence");
         String shortCode = shorteningService.encode(id);
 
-        // Calculate expiration: 30 days from now
-        Instant expiry = Instant.now().plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS);
-
-        UrlMapping mapping = new UrlMapping(id, originalUrl, expiry);
+        UrlMapping mapping = new UrlMapping(id, originalUrl, calculateExpiry());
         urlMappingRepository.save(mapping);
 
         return shortCode;
     }
 
+    // Method B: Custom Shortening (Overloaded)
+    public String shortenUrl(String originalUrl, String customCode) {
+        // 1. 🛡Check if customCode is already taken
+        if (urlMappingRepository.existsByCustomCode(customCode)) {
+            return null; // Controller can handle this as a 409 Conflict
+        }
+
+        // 2. Generate numeric ID for consistency
+        long id = sequenceGeneratorService.generateSequence("url_sequence");
+
+        // 3. Save with customCode
+        UrlMapping mapping = new UrlMapping(id, originalUrl, calculateExpiry());
+        mapping.setId(id);
+        mapping.setOriginalUrl(originalUrl);
+        mapping.setCustomCode(customCode);
+
+        urlMappingRepository.save(mapping);
+        return customCode;
+    }
+
     public String getOriginalUrl(String shortCode) {
-        long id = shorteningService.decode(shortCode);
+        // Dual-Field Lookup Strategy
 
-        // Locate the document by ID
-        Query query = new Query(Criteria.where("_id").is(id));
+        // Step 1: Try to decode as a numeric ID (Standard links)
+        long id = -1;
+        try {
+            id = shorteningService.decode(shortCode);
+        } catch (Exception e) {
+            // Not a valid Base62 string? Likely a custom code.
+        }
 
-        // Sliding Expiration: Increment clicks AND reset the 30-day timer
-        Instant newExpiry = Instant.now().plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS);
+        // Step 2: Query MongoDB for either the ID OR the customCode
+        Query query = new Query(new Criteria().orOperator(
+                Criteria.where("_id").is(id),
+                Criteria.where("customCode").is(shortCode)
+        ));
+
+        Instant newExpiry = calculateExpiry();
         Update update = new Update()
                 .inc("clicks", 1)
                 .set("expirationDate", newExpiry);
 
-        UrlMapping mapping = mongoTemplate.findAndModify(
-                query,
-                update,
-                UrlMapping.class
-        );
+        UrlMapping mapping = mongoTemplate.findAndModify(query, update, UrlMapping.class);
 
         return (mapping != null) ? mapping.getOriginalUrl() : null;
+    }
+
+    private Instant calculateExpiry() {
+        return Instant.now().plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS);
     }
 
     public UrlMapping getStats(String shortCode) {
