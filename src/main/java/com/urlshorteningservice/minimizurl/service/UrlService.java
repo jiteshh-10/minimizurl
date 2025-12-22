@@ -58,5 +58,19 @@ public class UrlService {
         return urlMappingRepository.findById(id).orElse(null); // Returns the whole document or null
     }
 
+    public void deleteById(String shortCode){
+        long id = shorteningService.decode(shortCode);
+        urlMappingRepository.deleteById(id);
+    }
+
+    public UrlMapping updateUrl(String shortCode, String newUrl){
+        long id = shorteningService.decode(shortCode);
+        UrlMapping mapping = urlMappingRepository.findById(id).orElse(null);
+        if(mapping != null){
+            mapping.setOriginalUrl(newUrl);
+            urlMappingRepository.save(mapping);
+        }
+        return mapping;
+    }
 
 }

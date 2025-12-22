@@ -1,6 +1,7 @@
 package com.urlshorteningservice.minimizurl.controller;
 
 import com.urlshorteningservice.minimizurl.domain.UrlMapping;
+import com.urlshorteningservice.minimizurl.dto.updateUrlRequest;
 import com.urlshorteningservice.minimizurl.service.UrlService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -48,4 +49,30 @@ public class UrlController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @DeleteMapping("/{shortCode}")
+    public ResponseEntity<Void> deleteUrl(@PathVariable String shortCode) {
+        urlService.deleteById(shortCode); // The action
+        return ResponseEntity.noContent().build(); // The response
+    }
+
+    @PutMapping("/{shortCode}")
+    public ResponseEntity<UrlMapping> updateUrl(
+            @PathVariable String shortCode,
+            @RequestBody updateUrlRequest request
+    ) {
+        // We get the URL out of the DTO
+        String newUrl = request.getNewUrl();
+
+        // Now we call the service
+        UrlMapping updatedMapping = urlService.updateUrl(shortCode, newUrl);
+
+        // How should we handle the response if updatedMapping is null?
+        if (updatedMapping != null) {
+            return ResponseEntity.ok(updatedMapping);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
 }
