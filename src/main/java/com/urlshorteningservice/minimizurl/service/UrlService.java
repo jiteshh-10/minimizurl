@@ -9,6 +9,9 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 @Service
 @RequiredArgsConstructor
 public class UrlService {
@@ -18,59 +21,64 @@ public class UrlService {
     private final SequenceGeneratorService sequenceGeneratorService;
     private final MongoTemplate mongoTemplate;
 
-    public String shortenUrl(String originalUrl) {
-        // Step 1: Get the next unique ID from the sequence generator
-        long id = sequenceGeneratorService.generateSequence("url_sequence");
+    // Default expiration: 30 days
+    private static final long DEFAULT_EXPIRY_DAYS = 30;
 
-        // Step 2: Encode that ID into a short Base62 string
+    public String shortenUrl(String originalUrl) {
+        long id = sequenceGeneratorService.generateSequence("url_sequence");
         String shortCode = shorteningService.encode(id);
 
-        // Step 3: Create the mapping and save it to MongoDB
-        UrlMapping mapping = new UrlMapping();
-        mapping.setId(id);
-        mapping.setOriginalUrl(originalUrl);
+        // Calculate expiration: 30 days from now
+        Instant expiry = Instant.now().plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS);
+
+        UrlMapping mapping = new UrlMapping(id, originalUrl, expiry);
         urlMappingRepository.save(mapping);
 
-        // Step 4: Return the short code to the user
         return shortCode;
-
     }
 
     public String getOriginalUrl(String shortCode) {
-        // Step 1: Decode the short code back to the unique ID
         long id = shorteningService.decode(shortCode);
 
+        // Locate the document by ID
         Query query = new Query(Criteria.where("_id").is(id));
-        Update update = new Update().inc("clicks", 1);
-        // Step 2: // FindAndModify handles the increment and retrieval in one step
+
+        // Sliding Expiration: Increment clicks AND reset the 30-day timer
+        Instant newExpiry = Instant.now().plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS);
+        Update update = new Update()
+                .inc("clicks", 1)
+                .set("expirationDate", newExpiry);
+
         UrlMapping mapping = mongoTemplate.findAndModify(
                 query,
                 update,
                 UrlMapping.class
         );
 
-        // Step 3: Return the original URL or null if not found
         return (mapping != null) ? mapping.getOriginalUrl() : null;
     }
 
     public UrlMapping getStats(String shortCode) {
-        long id = shorteningService.decode(shortCode); // Decodes "1" -> 1
-        return urlMappingRepository.findById(id).orElse(null); // Returns the whole document or null
+        long id = shorteningService.decode(shortCode);
+        return urlMappingRepository.findById(id).orElse(null);
     }
 
-    public void deleteById(String shortCode){
+    public void deleteById(String shortCode) {
         long id = shorteningService.decode(shortCode);
         urlMappingRepository.deleteById(id);
     }
 
-    public UrlMapping updateUrl(String shortCode, String newUrl){
+    public UrlMapping updateUrl(String shortCode, String newUrl) {
         long id = shorteningService.decode(shortCode);
         UrlMapping mapping = urlMappingRepository.findById(id).orElse(null);
-        if(mapping != null){
+        if (mapping != null) {
             mapping.setOriginalUrl(newUrl);
+
+            // Optional: Reset expiration when the URL is manually updated?
+            mapping.setExpirationDate(Instant.now().plus(DEFAULT_EXPIRY_DAYS, ChronoUnit.DAYS));
+
             urlMappingRepository.save(mapping);
         }
         return mapping;
     }
-
 }
