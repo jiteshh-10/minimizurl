@@ -5,14 +5,14 @@ import com.urlshorteningservice.minimizurl.repository.UrlMappingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class UrlService {
-
-@Autowired
-private MongoTemplate mongoTemplate;
 
     private final UrlMappingRepository urlMappingRepository;
     private final ShorteningService shorteningService;
@@ -31,8 +31,6 @@ private MongoTemplate mongoTemplate;
         mapping.setOriginalUrl(originalUrl);
         urlMappingRepository.save(mapping);
 
-        // Inside a method or at startup:
-        System.out.println("Connecting to Database: " + mongoTemplate.getDb().getName());
         // Step 4: Return the short code to the user
         return shortCode;
 
@@ -42,8 +40,14 @@ private MongoTemplate mongoTemplate;
         // Step 1: Decode the short code back to the unique ID
         long id = shorteningService.decode(shortCode);
 
+        Query query = new Query(Criteria.where("_id").is(id));
+        Update update = new Update().inc("clicks", 1);
         // Step 2: Retrieve the original URL from MongoDB using the ID
-        UrlMapping mapping = urlMappingRepository.findById(id).orElse(null);
+        UrlMapping mapping = urlMappingRepository.findAndModify(
+                query,
+                update,
+                UrlMapping.class
+        );
 
         // Step 3: Return the original URL or null if not found
         return (mapping != null) ? mapping.getOriginalUrl() : null;

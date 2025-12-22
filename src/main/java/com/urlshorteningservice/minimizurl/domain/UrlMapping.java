@@ -10,5 +10,5 @@ public class UrlMapping {
     @Id
     private long id;
     private String originalUrl;
-
+    private long clicks;
 }
