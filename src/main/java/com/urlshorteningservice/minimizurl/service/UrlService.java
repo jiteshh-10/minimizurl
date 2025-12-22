@@ -3,7 +3,6 @@ package com.urlshorteningservice.minimizurl.service;
 import com.urlshorteningservice.minimizurl.domain.UrlMapping;
 import com.urlshorteningservice.minimizurl.repository.UrlMappingRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -17,6 +16,7 @@ public class UrlService {
     private final UrlMappingRepository urlMappingRepository;
     private final ShorteningService shorteningService;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final MongoTemplate mongoTemplate;
 
     public String shortenUrl(String originalUrl) {
         // Step 1: Get the next unique ID from the sequence generator
@@ -42,8 +42,8 @@ public class UrlService {
 
         Query query = new Query(Criteria.where("_id").is(id));
         Update update = new Update().inc("clicks", 1);
-        // Step 2: Retrieve the original URL from MongoDB using the ID
-        UrlMapping mapping = urlMappingRepository.findAndModify(
+        // Step 2: // FindAndModify handles the increment and retrieval in one step
+        UrlMapping mapping = mongoTemplate.findAndModify(
                 query,
                 update,
                 UrlMapping.class
