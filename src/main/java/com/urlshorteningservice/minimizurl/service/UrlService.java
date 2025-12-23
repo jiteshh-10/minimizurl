@@ -126,4 +126,20 @@ public class UrlService {
         ClickEvent event = new ClickEvent(urlId, referer, userAgent);
         clickEventRepository.save(event);
     }
+
+    public UrlMapping findMappingByShortCode(String shortCode) {
+        long id = -1;
+        try {
+            id = shorteningService.decode(shortCode);
+        } catch (Exception e) {
+            // Not a Base62 ID, likely a custom code
+        }
+
+        Query query = new Query(new Criteria().orOperator(
+                Criteria.where("_id").is(id),
+                Criteria.where("customCode").is(shortCode)
+        ));
+
+        return mongoTemplate.findOne(query, UrlMapping.class);
+    }
 }

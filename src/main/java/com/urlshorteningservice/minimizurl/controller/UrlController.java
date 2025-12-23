@@ -2,6 +2,8 @@ package com.urlshorteningservice.minimizurl.controller;
 
 import com.urlshorteningservice.minimizurl.domain.UrlMapping;
 import com.urlshorteningservice.minimizurl.dto.updateUrlRequest;
+import com.urlshorteningservice.minimizurl.service.AnalyticsService;
+import com.urlshorteningservice.minimizurl.service.ShorteningService;
 import com.urlshorteningservice.minimizurl.service.UrlService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.*;
 
 @RestController
 @RequestMapping("/mini") // No trailing slash here
@@ -97,6 +100,34 @@ public class UrlController {
             return ResponseEntity.ok(updatedMapping);
         } else {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @RestController
+    @RequestMapping("/api/analytics")
+    @RequiredArgsConstructor
+    public class AnalyticsController {
+
+        private final AnalyticsService analyticsService;
+        private final ShorteningService shorteningService; // To decode shortCode to ID
+
+        @GetMapping("/{shortCode}/stats")
+        public ResponseEntity<Map<String, Object>> getFullAnalytics(@PathVariable String shortCode) {
+            // 1. Get the actual mapping from the DB to find the TRUE ID
+            UrlMapping mapping = urlService.findMappingByShortCode(shortCode);
+
+            if (mapping == null) return ResponseEntity.notFound().build();
+
+            Long trueId = mapping.getId();
+
+            // 2. Query stats using the verified ID
+            Map<String, Object> response = new HashMap<>();
+            response.put("summary", analyticsService.getClickStats(trueId));
+            response.put("topReferrers", analyticsService.getTopReferrers(trueId));
+            response.put("deviceBreakdown", analyticsService.getDeviceStats(trueId));
+            response.put("dailyTrend", analyticsService.getDailyClickTrend(trueId));
+
+            return ResponseEntity.ok(response);
         }
     }
 

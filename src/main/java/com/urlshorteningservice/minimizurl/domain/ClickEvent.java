@@ -1,5 +1,6 @@
 package com.urlshorteningservice.minimizurl.domain;
 
+import lombok.Getter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -16,6 +17,7 @@ public class ClickEvent {
     private String referer;
     private String userAgent;
 
+    @Getter
     @CreatedDate // Automatically set by Spring Data
     private Instant timestamp;
 
