@@ -1,16 +1,20 @@
 package com.urlshorteningservice.minimizurl.service;
 
+import com.urlshorteningservice.minimizurl.domain.ClickEvent;
 import com.urlshorteningservice.minimizurl.domain.UrlMapping;
+import com.urlshorteningservice.minimizurl.repository.ClickEventRepository;
 import com.urlshorteningservice.minimizurl.repository.UrlMappingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +24,7 @@ public class UrlService {
     private final ShorteningService shorteningService;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final MongoTemplate mongoTemplate;
+    private final ClickEventRepository clickEventRepository;
 
     // Default expiration: 30 days
     private static final long DEFAULT_EXPIRY_DAYS = 30;
@@ -55,7 +60,7 @@ public class UrlService {
         return customCode;
     }
 
-    public String getOriginalUrl(String shortCode) {
+    public String getOriginalUrl(String shortCode, String referer, String userAgent) {
         // Dual-Field Lookup Strategy
 
         // Step 1: Try to decode as a numeric ID (Standard links)
@@ -79,7 +84,13 @@ public class UrlService {
 
         UrlMapping mapping = mongoTemplate.findAndModify(query, update, UrlMapping.class);
 
-        return (mapping != null) ? mapping.getOriginalUrl() : null;
+        if (mapping != null) {
+            //  Start the background analytics recording
+            recordClick(mapping.getId(), referer, userAgent);
+
+            return mapping.getOriginalUrl();
+        }
+        return null;
     }
 
     private Instant calculateExpiry() {
@@ -108,5 +119,11 @@ public class UrlService {
             urlMappingRepository.save(mapping);
         }
         return mapping;
+    }
+
+    @Async
+    public void recordClick(Long urlId, String referer, String userAgent){
+        ClickEvent event = new ClickEvent(urlId, referer, userAgent);
+        clickEventRepository.save(event);
     }
 }

@@ -1,12 +1,13 @@
 package com.urlshorteningservice.minimizurl;
 
-import com.urlshorteningservice.minimizurl.service.UrlService;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.config.EnableMongoAuditing;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
+@EnableAsync
+@EnableMongoAuditing
 public class MinimizurlApplication {
     public static void main(String[] args) {
         SpringApplication.run(MinimizurlApplication.class, args);

@@ -42,11 +42,17 @@ public class UrlController {
     }
 
     @GetMapping("/{shortCode}")
-    public void redirectUrl(@PathVariable String shortCode, HttpServletResponse response) throws IOException {
-        String originalUrl = urlService.getOriginalUrl(shortCode);
+    public void redirectUrl(
+            @PathVariable String shortCode,
+            @RequestHeader(value = "User-Agent", required = false) String userAgent,
+            @RequestHeader(value = "Referer", required = false) String referer,
+            HttpServletResponse response) throws IOException {
+
+        // 1. Call the updated service with metadata
+        String originalUrl = urlService.getOriginalUrl(shortCode, referer, userAgent);
 
         if (originalUrl != null) {
-            // Ensure the URL starts with http/https for the redirect to work externally
+            // 2. Your existing logic to ensure valid protocol
             if (!originalUrl.startsWith("http")) {
                 originalUrl = "https://" + originalUrl;
             }
