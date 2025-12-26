@@ -2,24 +2,29 @@ package com.urlshorteningservice.minimizurl.controller;
 
 import com.urlshorteningservice.minimizurl.domain.UrlMapping;
 import com.urlshorteningservice.minimizurl.dto.updateUrlRequest;
+import com.urlshorteningservice.minimizurl.repository.UserRepository;
 import com.urlshorteningservice.minimizurl.service.AnalyticsService;
-import com.urlshorteningservice.minimizurl.service.ShorteningService;
 import com.urlshorteningservice.minimizurl.service.UrlService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.*;
 
 @RestController
-@RequestMapping("/mini") // No trailing slash here
+@RequestMapping("/mini")
 @RequiredArgsConstructor
 public class UrlController {
 
     private final UrlService urlService;
+    private final AnalyticsService analyticsService;
+    private final UserRepository userRepository;
 
     @PostMapping("/shorten")
     public ResponseEntity<String> shortenUrl(
@@ -27,18 +32,15 @@ public class UrlController {
             @RequestParam(required = false) String customCode) {
 
         String result;
-
-        // 1. Check if a custom code was provided
         if (customCode != null && !customCode.trim().isEmpty()) {
             result = urlService.shortenUrl(url, customCode);
         } else {
             result = urlService.shortenUrl(url);
         }
 
-        // 2. Handle the "Already Taken" case
+        // Note: We'll eventually move 'result == null' into an exception in UrlService too
         if (result == null) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("Error: Custom code '" + customCode + "' is already in use.");
+            return ResponseEntity.status(409).body("Error: Custom code is already in use.");
         }
 
         return ResponseEntity.ok(result);
@@ -51,84 +53,64 @@ public class UrlController {
             @RequestHeader(value = "Referer", required = false) String referer,
             HttpServletResponse response) throws IOException {
 
-        // 1. Call the updated service with metadata
-        String originalUrl = urlService.getOriginalUrl(shortCode, referer, userAgent);
+        // Service throws LinkNotFoundException if mapping is missing
+        String visitorId = getCurrentUserId();
+        String originalUrl = urlService.getOriginalUrl(shortCode, referer, userAgent, visitorId);
 
-        if (originalUrl != null) {
-            // 2. Your existing logic to ensure valid protocol
-            if (!originalUrl.startsWith("http")) {
-                originalUrl = "https://" + originalUrl;
-            }
-            response.sendRedirect(originalUrl);
-        } else {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        if (!originalUrl.startsWith("http")) {
+            originalUrl = "https://" + originalUrl;
         }
+        response.sendRedirect(originalUrl);
     }
 
     @GetMapping("/stats/{shortCode}")
     public ResponseEntity<UrlMapping> getStats(@PathVariable String shortCode) {
+        // Service should throw LinkNotFoundException if not found
         UrlMapping mapping = urlService.getStats(shortCode);
-
-        if (mapping != null) {
-            // Return 200 OK with the object in the body
-            return ResponseEntity.ok(mapping);
-        } else {
-            // Return 404 Not Found with an empty body
-            return ResponseEntity.notFound().build();
-        }
+        return ResponseEntity.ok(mapping);
     }
 
     @DeleteMapping("/{shortCode}")
     public ResponseEntity<Void> deleteUrl(@PathVariable String shortCode) {
-        urlService.deleteById(shortCode); // The action
-        return ResponseEntity.noContent().build(); // The response
+        // Service handles finding and ownership check
+        urlService.deleteById(shortCode, getCurrentUserId());
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{shortCode}")
     public ResponseEntity<UrlMapping> updateUrl(
             @PathVariable String shortCode,
-            @RequestBody updateUrlRequest request
-    ) {
-        // We get the URL out of the DTO
-        String newUrl = request.getNewUrl();
+            @RequestBody updateUrlRequest request) {
 
-        // Now we call the service
-        UrlMapping updatedMapping = urlService.updateUrl(shortCode, newUrl);
-
-        // How should we handle the response if updatedMapping is null?
-        if (updatedMapping != null) {
-            return ResponseEntity.ok(updatedMapping);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        // Service handles finding, ownership, and update logic
+        UrlMapping updatedMapping = urlService.updateUrl(shortCode, request.getNewUrl(), getCurrentUserId());
+        return ResponseEntity.ok(updatedMapping);
     }
 
-    @RestController
-    @RequestMapping("/api/analytics")
-    @RequiredArgsConstructor
-    public class AnalyticsController {
+    @GetMapping("/{shortCode}/fstats")
+    public ResponseEntity<Map<String, Object>> getFullAnalytics(@PathVariable String shortCode) {
+        // 1. We move the lookup and security logic to a new method in UrlService
+        // Let's call it 'getMappingForUser'
+        UrlMapping mapping = urlService.getMappingForUser(shortCode, getCurrentUserId());
 
-        private final AnalyticsService analyticsService;
-        private final ShorteningService shorteningService; // To decode shortCode to ID
+        Long trueId = mapping.getId();
 
-        @GetMapping("/{shortCode}/stats")
-        public ResponseEntity<Map<String, Object>> getFullAnalytics(@PathVariable String shortCode) {
-            // 1. Get the actual mapping from the DB to find the TRUE ID
-            UrlMapping mapping = urlService.findMappingByShortCode(shortCode);
+        // 2. The rest of the logic remains clean and focused on data gathering
+        Map<String, Object> response = new HashMap<>();
+        response.put("summary", analyticsService.getClickStats(trueId));
+        response.put("topReferrers", analyticsService.getTopReferrers(trueId));
+        response.put("deviceBreakdown", analyticsService.getDeviceStats(trueId));
+        response.put("dailyTrend", analyticsService.getDailyClickTrend(trueId));
 
-            if (mapping == null) return ResponseEntity.notFound().build();
-
-            Long trueId = mapping.getId();
-
-            // 2. Query stats using the verified ID
-            Map<String, Object> response = new HashMap<>();
-            response.put("summary", analyticsService.getClickStats(trueId));
-            response.put("topReferrers", analyticsService.getTopReferrers(trueId));
-            response.put("deviceBreakdown", analyticsService.getDeviceStats(trueId));
-            response.put("dailyTrend", analyticsService.getDailyClickTrend(trueId));
-
-            return ResponseEntity.ok(response);
-        }
+        return ResponseEntity.ok(response);
     }
 
+    private String getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+            // Since CustomUserDetailsService now sets the ID as the 'username' in the Principal
+            return auth.getName();
+        }
+        return "GUEST";
+    }
 }

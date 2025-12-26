@@ -28,6 +28,8 @@ public class UrlMapping {
     @Indexed(unique = true, sparse = true)
     private String customCode;
 
+    private String userId;
+
     // Custom Constructor for our Service
     public UrlMapping(long id, String originalUrl, Instant expirationDate) {
         this.id = id;

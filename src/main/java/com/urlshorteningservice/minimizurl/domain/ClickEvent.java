@@ -16,6 +16,8 @@ public class ClickEvent {
     private Long urlId;
     private String referer;
     private String userAgent;
+    private String ownerId;
+    private String visitorId;
 
     @Getter
     @CreatedDate // Automatically set by Spring Data
@@ -24,7 +26,9 @@ public class ClickEvent {
     // No-args constructor required by Spring Data/MongoDB
     public ClickEvent() {}
 
-    public ClickEvent(Long urlId, String referer, String userAgent) {
+    public ClickEvent(Long urlId, String referer, String userAgent, String ownerId, String visitorId) {
+        this.ownerId = ownerId;
+        this.visitorId = visitorId;
         this.urlId = urlId;
         this.referer = referer;
         this.userAgent = userAgent;

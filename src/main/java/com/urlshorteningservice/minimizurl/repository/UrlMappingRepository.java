@@ -6,9 +6,9 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import java.util.Optional;
 
 public interface UrlMappingRepository extends MongoRepository<UrlMapping, Long> {
-    // New method to check if a custom code already exists
+    // Allows for more efficient ownership checks at the DB level
+    Optional<UrlMapping> findByCustomCodeAndUserId(String customCode, String userId);
     boolean existsByCustomCode(String customCode);
-
-    // Optional: useful if we need to find by custom code without the OR query
-    Optional<UrlMapping> findByCustomCode(String customCode);
+    // Also add ID-based ownership lookup
+    Optional<UrlMapping> findByIdAndUserId(Long id, String userId);
 }
