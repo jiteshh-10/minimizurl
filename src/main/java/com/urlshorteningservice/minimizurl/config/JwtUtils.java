@@ -13,7 +13,7 @@ import java.util.function.Function;
 @Component
 public class JwtUtils {
 
-    // 🔐 Generate a secure key for HS256 algorithm
+    // Generate a secure key for HS256 algorithm
     private final SecretKey key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
     private final long jwtExpirationMs = 86400000; // 24 hours
 

@@ -2,7 +2,6 @@ package com.urlshorteningservice.minimizurl.service;
 
 import com.urlshorteningservice.minimizurl.domain.ClickEvent;
 import com.urlshorteningservice.minimizurl.domain.UrlMapping;
-import com.urlshorteningservice.minimizurl.domain.User;
 import com.urlshorteningservice.minimizurl.exception.LinkNotFoundException;
 import com.urlshorteningservice.minimizurl.exception.UnauthorizedAccessException;
 import com.urlshorteningservice.minimizurl.repository.ClickEventRepository;

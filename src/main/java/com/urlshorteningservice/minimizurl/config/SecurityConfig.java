@@ -33,6 +33,8 @@ public class SecurityConfig {
                         // 1. Permitting Auth and Success Endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/auth/delete-account").hasRole("USER")
 
                         // 2. Shortening and Redirection
                         .requestMatchers(HttpMethod.POST, "/mini/shorten/**").permitAll()

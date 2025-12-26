@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.util.Set;
 
 @Document(collection = "users")
@@ -35,6 +36,9 @@ public class User {
     private String googleId; // Unique ID provided by Google (sub claim)
 
     private Set<String> roles;
+
+    private String passwordResetToken;
+    private Instant passwordResetTokenExpiry;
 
     // Constructor for standard registration
     public User(String username, String password, Set<String> roles) {
