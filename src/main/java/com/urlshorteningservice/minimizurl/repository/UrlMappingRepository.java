@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface UrlMappingRepository extends MongoRepository<UrlMapping, Long> {
     boolean existsByCustomCode(String customCode);
     void deleteByUserId(String userId); // Deletes all links owned by the user
+    long countByUserId(String userId);
 }

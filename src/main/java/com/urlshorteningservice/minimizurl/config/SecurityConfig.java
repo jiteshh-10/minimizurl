@@ -40,8 +40,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/mini/shorten/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/mini/{shortCode}").permitAll()
 
-                        // 3. Protected Analytics
+                        // 3. Protected Analytics and Profile Endpoints
                         .requestMatchers("/api/analytics/**").hasRole("USER")
+                        .requestMatchers("/api/user/**").authenticated() // Profile is for registered users only
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
